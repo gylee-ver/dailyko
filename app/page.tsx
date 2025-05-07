@@ -20,13 +20,16 @@ type Review = {
 
 export default function LandingPage() {
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [hours, setHours] = useState(23)
-  const [minutes, setMinutes] = useState(59)
-  const [seconds, setSeconds] = useState(59)
+  const [hours, setHours] = useState(0)
+  const [minutes, setMinutes] = useState(0)
+  const [seconds, setSeconds] = useState(0)
   const [isTimerVisible, setIsTimerVisible] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [currentPageSet, setCurrentPageSet] = useState(1) // Tracks which set of 9 pages we're viewing
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+  const [isImageExpanded, setIsImageExpanded] = useState(false)
+  const [isEmailTooltipVisible, setIsEmailTooltipVisible] = useState(false)
+  const [isPlanModalVisible, setIsPlanModalVisible] = useState(false)
   const [newReview, setNewReview] = useState<{
     name: string
     rating: number
@@ -121,21 +124,40 @@ export default function LandingPage() {
 
   // Timer countdown logic
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (seconds > 0) {
-        setSeconds(seconds - 1)
-      } else if (minutes > 0) {
-        setMinutes(minutes - 1)
-        setSeconds(59)
-      } else if (hours > 0) {
-        setHours(hours - 1)
-        setMinutes(59)
-        setSeconds(59)
+    const calculateTimeLeft = () => {
+      const now = new Date()
+      const nyTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }))
+      const targetTime = new Date(nyTime)
+      targetTime.setHours(11, 0, 0, 0)
+      
+      // 다음 날 11시로 설정
+      if (nyTime.getHours() >= 11) {
+        targetTime.setDate(targetTime.getDate() + 1)
       }
-    }, 1000)
+      
+      const timeLeft = targetTime.getTime() - nyTime.getTime()
+      return {
+        hours: Math.floor(timeLeft / (1000 * 60 * 60)),
+        minutes: Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((timeLeft % (1000 * 60)) / 1000)
+      }
+    }
+
+    const updateTimer = () => {
+      const { hours: h, minutes: m, seconds: s } = calculateTimeLeft()
+      setHours(h)
+      setMinutes(m)
+      setSeconds(s)
+    }
+
+    // 초기 타이머 설정
+    updateTimer()
+
+    // 1초마다 타이머 업데이트
+    const timer = setInterval(updateTimer, 1000)
 
     return () => clearInterval(timer)
-  }, [hours, minutes, seconds])
+  }, [])
 
   // Sticky timer logic
   useEffect(() => {
@@ -204,7 +226,7 @@ export default function LandingPage() {
   }
 
   // Product images for carousel
-  const productImages = ["/Frame 1.png", "/Frame 2.png", "/Frame 3.png", "/Frame 4.png", "/Frame 5.png"]
+  const productImages = ["/Paypal_1.png", "/Frame 2.png", "/Frame 3.png", "/Frame 4.png", "/Frame 5.png"]
 
   // Pagination logic
   const reviewsPerPage = 5
@@ -215,6 +237,45 @@ export default function LandingPage() {
   const startPage = (currentPageSet - 1) * 9 + 1
   const endPage = Math.min(startPage + 8, totalPages)
   const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i)
+
+  // 이미지 확장 모달 닫기 함수
+  const handleCloseExpandedImage = () => {
+    setIsImageExpanded(false)
+  }
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsImageExpanded(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscKey)
+    return () => window.removeEventListener('keydown', handleEscKey)
+  }, [])
+
+  // 이메일 복사 함수 추가
+  const copyEmailToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText('102536gy@gmail.com')
+    } catch (err) {
+      console.error('이메일 복사 실패:', err)
+    }
+  }
+
+  // 외부 클릭 시 모달 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.email-tooltip') && !target.closest('.contact-button')) {
+        setIsEmailTooltipVisible(false)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto bg-white">
@@ -301,11 +362,11 @@ export default function LandingPage() {
         <div className="px-4 mt-4">
           <div className="flex flex-col items-start">
             <div>
-              <span className="text-gray-500 line-through text-2xl tracking-tight">$19.29</span>
+              <span className="text-gray-500 line-through text-2xl tracking-tight">$25.00</span>
             </div>
             <div className="flex items-center mt-1">
               <span className="text-red-600 font-bold mr-2 text-4xl tracking-tighter">30%</span>
-              <span className="text-4xl font-bold tracking-tighter">$13.50</span>
+              <span className="text-4xl font-bold tracking-tighter">$17.50</span>
             </div>
           </div>
         </div>
@@ -358,13 +419,40 @@ export default function LandingPage() {
 
         {/* Detailed Product Images */}
         <div className="mt-8">
-          <Image
-            src="/korean-learning-infographic.png"
-            alt="Product details"
-            width={400}
-            height={800}
-            className="w-full"
-          />
+          <div className="relative">
+            {!isImageExpanded && (
+              <div className="overflow-hidden" style={{ height: '300px' }}>
+                <Image
+                  src="/details page ver.1.png"
+                  alt="Product details"
+                  width={400}
+                  height={800}
+                  className="w-full"
+                />
+                {/* 그라데이션 오버레이 */}
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/90 to-transparent" />
+                <Button
+                  onClick={() => setIsImageExpanded(true)}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#25D366] hover:bg-[#128C7E] 
+                           text-white font-medium px-6 py-2 rounded-full shadow-lg hover:shadow-xl 
+                           transition-all duration-200 border border-[#25D366] hover:border-[#128C7E]"
+                  size="sm"
+                >
+                  View Full Image
+                </Button>
+              </div>
+            )}
+
+            {isImageExpanded && (
+              <Image
+                src="/details page ver.1.png"
+                alt="Product details"
+                width={400}
+                height={800}
+                className="w-full"
+              />
+            )}
+          </div>
         </div>
 
         {/* Plans Section */}
@@ -377,22 +465,31 @@ export default function LandingPage() {
             </div>
             <h3 className="font-bold">Annual Pass</h3>
             <p className="text-2xl font-bold mt-1">
-              $13.50 <span className="text-sm font-normal text-gray-600">/year</span>
+              $17.50 <span className="text-sm font-normal text-gray-600">/year</span>
             </p>
-            <p className="text-sm text-gray-600 mt-1">Just 4¢ per day</p>
-            <p className="text-sm mt-2">50% discount, best value</p>
-            <Button className="w-full mt-3 bg-green-600 hover:bg-green-700">Choose Annual</Button>
+            <p className="text-sm text-gray-600 mt-1">Just 4.8¢ per day</p>
+            <p className="text-sm mt-2">30% discount, best value</p>
+            <Button 
+              className="w-full mt-3 bg-green-600 hover:bg-green-700"
+              onClick={() => window.open('https://tally.so/r/n9xK5X', '_blank')}
+            >
+              Choose Annual Pass
+            </Button>
           </div>
 
           <div className="border rounded-lg p-4">
-            <h3 className="font-bold">Monthly Pass</h3>
+            <h3 className="font-bold">Half Pass</h3>
             <p className="text-2xl font-bold mt-1">
-              $1.79 <span className="text-sm font-normal text-gray-600">/month</span>
+              $9.20 <span className="text-sm font-normal text-gray-600">/6months</span>
             </p>
-            <p className="text-sm text-gray-600 mt-1">Cancel anytime</p>
+            <p className="text-sm text-gray-600 mt-1">Stress-free. 6 months, one smart move.</p>
             <p className="text-sm mt-2">Flexible option to start</p>
-            <Button variant="outline" className="w-full mt-3">
-              Choose Monthly
+            <Button 
+              variant="outline" 
+              className="w-full mt-3"
+              onClick={() => window.open('https://tally.so/r/n9xK5X', '_blank')}
+            >
+              Choose half Pass
             </Button>
           </div>
         </div>
@@ -406,9 +503,9 @@ export default function LandingPage() {
             </Button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 h-[600px] overflow-y-auto">
             {paginatedReviews.map((review) => (
-              <div key={review.id} className="border-b pb-4">
+              <div key={review.id} className="border-b pb-4 min-h-[120px] max-h-[150px] overflow-y-auto">
                 <div className="flex justify-between">
                   <h3 className="font-semibold">{review.name}</h3>
                   <span className="text-xs text-gray-500">{review.date}</span>
@@ -465,30 +562,41 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-[#25D366] text-white py-6 px-4 text-center text-sm">
         <p className="mb-2">© 2023 DailyKo. All rights reserved.</p>
-        <div className="flex justify-center gap-4 mb-2">
-          <Link href="#" className="hover:underline">
-            Terms
-          </Link>
-          <Link href="#" className="hover:underline">
-            Privacy
-          </Link>
-          <Link href="#" className="hover:underline">
-            Support
-          </Link>
-        </div>
         <p>Just one message a day. No app. No stress.</p>
-
-        {/* Bottom spacing to account for fixed navigation */}
-        <div className="h-14"></div>
       </footer>
+
+      {/* Bottom spacing to account for fixed navigation */}
+      <div className="h-14"></div>
 
       {/* Sticky Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex max-w-md mx-auto">
-        <Button variant="outline" className="flex-1 rounded-none h-14 border-0 text-gray-700">
-          <MessageCircle className="mr-2 h-5 w-5" />
-          Contact Us
-        </Button>
-        <Button className="flex-1 rounded-none h-14 bg-[#25D366] hover:bg-[#128C7E] text-white">
+        <div className="relative w-1/2">
+          {isEmailTooltipVisible && (
+            <div className="email-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg p-3 w-49">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">102536gy@gmail.com</span>
+                <button
+                  onClick={copyEmailToClipboard}
+                  className="ml-2 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+          <Button 
+            variant="outline" 
+            className="contact-button w-full rounded-none h-14 border-0 text-gray-700"
+            onClick={() => setIsEmailTooltipVisible(!isEmailTooltipVisible)}
+          >
+            <MessageCircle className="mr-2 h-5 w-5" />
+            Contact Us
+          </Button>
+        </div>
+        <Button 
+          className="w-1/2 rounded-none h-14 bg-[#25D366] hover:bg-[#128C7E] text-white"
+          onClick={() => window.open('https://tally.so/r/n9xK5X', '_blank')}
+        >
           <ShoppingBag className="mr-2 h-5 w-5" />
           Get Started Now
         </Button>
